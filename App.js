@@ -17,6 +17,9 @@ import { useFonts } from "expo-font";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { Forecast } from "./pages/Forecast/Forecast";
+import * as Notifications from "expo-notifications";
+import * as Device from "expo-device";
+import { Platform } from "react-native";
 
 const Stack = createNativeStackNavigator();
 
@@ -33,6 +36,7 @@ export default function App() {
   const [isFontLoaded] = useFonts({
     "Alata-Regular": require("./assets/fonts/Alata-Regular.ttf"),
   });
+
   async function onSubmit(cityName) {
     try {
       const coords = await MeteoAPI.fetchCoordsByCityName(cityName);
@@ -45,8 +49,45 @@ export default function App() {
     }
   }
   useEffect(() => {
+    subscribeToNotification();
     getCoordinates();
   }, []);
+  async function subscribeToNotification() {
+    let token;
+
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("default", {
+        name: "default",
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: "#FF231F7C",
+      });
+    }
+    console.log(Device.isDevice);
+    if (Device.isDevice) {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      console.log(existingStatus);
+      if (existingStatus !== "granted") {
+        const { status } = Notifications.requestPermissionsAsync();
+        if (status !== "granted") {
+          return;
+        }
+      }
+      console.log("i am here now");
+      try {
+        token = (await Notifications.getExpoPushTokenAsync({})).data;
+      } catch (e) {
+        console.log(e);
+      }
+      console.log(token);
+    } else {
+      console.log("i am emulator");
+      Alert.alert("Must use physical device for Push Notifications");
+    }
+
+    return token;
+  }
   useEffect(() => {
     if (currentCoordinates) {
       getCurrentWeather(currentCoordinates);
